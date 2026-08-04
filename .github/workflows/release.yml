@@ -1,0 +1,82 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to (re)build, e.g. v0.1.0'
+        required: true
+
+permissions:
+  contents: write   # needed to create a GitHub Release
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
+      - name: Build sdist (wheel is intentionally NOT built — install-time hook only fires from sdist)
+        env:
+          SCSIM_DISABLE: '1'   # never let a build machine detonate the payload
+        run: python -m build --sdist
+
+      - name: Show artifacts
+        run: ls -la dist/
+
+      - name: Compute checksums
+        working-directory: dist
+        run: |
+          sha256sum *.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.tag.outputs.name }}
+          body: |
+            Benign supply-chain-attack simulator — sdist for install-time
+            behavior testing on Picus / EDR validation hosts.
+
+            **Install (fires install-time payload):**
+            ```
+            pip install --no-binary :all: https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/scsim-${{ steps.tag.outputs.name }}.tar.gz
+            ```
+
+            Replace `scsim-${{ steps.tag.outputs.name }}.tar.gz` with the
+            actual filename shown in the assets list below — the version
+            in the filename comes from `pyproject.toml`, not the tag.
+
+            Verify with `SHA256SUMS`.
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS
+          draft: false
+          prerelease: false

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scsim"
+version = "0.1.0"
+description = "Benign supply-chain-attack behavioral simulator for EDR/AV detection testing"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{ name = "Security Team" }]
+license = { text = "Internal use only" }
+keywords = ["security", "edr", "detection", "purple-team", "simulation"]
+classifiers = [
+  "Intended Audience :: System Administrators",
+  "Topic :: Security",
+  "Operating System :: OS Independent",
+]
+
+[project.scripts]
+scsim = "scsim.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
