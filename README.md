@@ -70,13 +70,49 @@ scsim cleanup
 
 Removes the dropped file, the service/agent/unit, and the log.
 
+## Where every artifact lands
+
+Ask on any box: `scsim paths` (prints JSON of every path scsim will touch).
+
+| Artifact | Windows | macOS | Linux |
+|---|---|---|---|
+| Activity log (JSONL) | `%TEMP%\scsim_activity.log` | `$TMPDIR/scsim_activity.log` (usually `/var/folders/…/T/`) | `/tmp/scsim_activity.log` |
+| Dropped file (T1105) | `%TEMP%\scsim_dropped.txt` | `$TMPDIR/scsim_dropped.txt` | `/tmp/scsim_dropped.txt` |
+| Persistence artifact (T1543) | Service `scsim_sim_svc` in SCM (registered via `sc.exe create`) | `~/Library/LaunchAgents/com.scsim.simulation.plist` (loaded via `launchctl load`) | `~/.config/systemd/user/scsim-sim.service` (registered via `systemctl --user daemon-reload`) |
+| Persistence exec log | `%TEMP%\scsim_svc.log` | `$TMPDIR/scsim_agent.log` | `/tmp/scsim_svc.log` |
+| Outbound beacon (T1071) | HTTP GET `http://1.1.1.1/` (configurable) | same | same |
+
+Override any location with `SCSIM_DROP_DIR=/some/path`.
+
+## Timing — why you might have seen "nothing"
+
+Windows Defender and many EDRs drop process-create events for children
+that live < ~200ms. The v0.1.0 install-time hook detached the payload and
+exited immediately, which is why you saw only the `pip install` command in
+your telemetry.
+
+From v0.1.1 on, the install hook is:
+  * **Synchronous** — pip waits for the payload; nothing gets orphaned or killed
+  * **Loud** — every step is printed to stdout so it appears in the pip terminal
+  * **Slow on purpose** — a configurable `SCSIM_STEP_DELAY` (default 3s) sits
+    between each MITRE technique so Defender can ingest and correlate the
+    process-create, file-create, and network events before the next one fires
+
+If Defender still misses events, dial the sleep up:
+
+```bash
+SCSIM_STEP_DELAY=8 pip install --no-binary :all: --verbose git+https://github.com/dallas-x/scsim@main
+```
+
 ## Configuration
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `SCSIM_DISABLE`     | unset   | Set to `1` to skip the install-time payload |
-| `SCSIM_BEACON_URL`  | `http://1.1.1.1/` | Where to send the HTTP GET |
-| `SCSIM_DROP_DIR`    | OS temp dir | Where to write the dropped file and log |
+| `SCSIM_DISABLE`      | unset             | Set to `1` to skip the install-time payload entirely |
+| `SCSIM_BEACON_URL`   | `http://1.1.1.1/` | Where to send the HTTP GET |
+| `SCSIM_DROP_DIR`     | OS temp dir       | Where to write the dropped file and log |
+| `SCSIM_STEP_DELAY`   | `3`               | Seconds to sleep between MITRE steps — raise if EDR misses events |
+| `SCSIM_SETTLE_DELAY` | `2`               | Seconds pip pauses before spawning the shell (setup.py only) |
 
 ## Log format
 
