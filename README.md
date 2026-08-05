@@ -29,7 +29,7 @@ pip install --no-binary :all: git+https://github.com/dallas-x/scsim@main
 
 From a published GitHub Release sdist (see the `release` workflow):
 ```bash
-pip install --no-binary :all: https://github.com/dallas-x/scsim/releases/download/v0.1.0/scsim-0.1.0.tar.gz
+pip install --no-binary :all: --verbose https://github.com/dallas-x/scsim/releases/download/v0.1.0/scsim-0.1.0.tar.gz
 ```
 
 Or from a local checkout:
